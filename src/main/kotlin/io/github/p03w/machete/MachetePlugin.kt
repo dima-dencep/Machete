@@ -6,7 +6,6 @@ import io.github.p03w.machete.config.MachetePluginExtension
 import io.github.p03w.machete.patches.patches
 import io.github.p03w.machete.tasks.DumpTasksWithOutputJarsTask
 import io.github.p03w.machete.tasks.OptimizeJarsTask
-import io.github.p03w.machete.tasks.UnpackOxipngTask
 import io.github.p03w.machete.util.capital
 import io.github.p03w.machete.util.knownGoodTasks
 import org.gradle.api.Plugin
@@ -21,8 +20,6 @@ class MachetePlugin : Plugin<Project> {
                 project.logger.lifecycle("Machete was disabled on this build through the `enabled` flag!")
                 return@afterEvaluate
             }
-
-            val unpackOxipngTask = project.tasks.register("unpackOxipng", UnpackOxipngTask::class.java)
 
             val tasksToCheck = knownGoodTasks.toMutableSet()
             extension.additionalTasks.orNull?.let {
@@ -64,9 +61,6 @@ class MachetePlugin : Plugin<Project> {
                         // Give everything its own sibling dir to prevent overlapping on parallel tasks
                         optimizeTask.buildDir.set(project.layout.buildDirectory.get().asFile.resolve("machete-build").resolve(taskName))
                         optimizeTask.extension.set(extension)
-
-                        // Make sure oxipng is set up before we do anything
-                        optimizeTask.dependsOn(unpackOxipngTask)
                     }
 
                     // Hook after build

@@ -19,6 +19,8 @@ dependencies {
     shadow("org.ow2.asm:asm:$asmVer")
     shadow("org.ow2.asm:asm-tree:$asmVer")
     shadow("org.ow2.asm:asm-commons:$asmVer")
+
+    shadow("com.github.depsypher:pngtastic:1.8")
 }
 //endregion
 
@@ -29,6 +31,7 @@ tasks.shadowJar {
     )
 
     relocate("org.ow2.asm", "s_m.ow2.asm")
+    relocate("com.googlecode.pngtastic", "s_m.pngtastic")
 
     minimize()
 }
