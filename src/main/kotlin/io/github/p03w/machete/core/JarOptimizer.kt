@@ -99,9 +99,20 @@ class JarOptimizer(
             }
 
             // .jars are handled by the children list, so that we can place them properly
-            workDir.walkBottomUp().toList().filter {
+            val files = workDir.walkBottomUp().toList().filter {
                 it.isFile && (it.extension != "jar" || !config.jij.enabled.get())
-            }.forEach { optimizedFile ->
+            }
+            val sorted = if (config.reproducibleFileOrder.get()) {
+                files.sortedWith(compareBy {
+                    val path = it.relativeTo(workDir).path.replace("\\", "/")
+                    when {
+                        path.equals("META-INF/MANIFEST.MF", ignoreCase = true) -> 0
+                        path.startsWith("META-INF/", ignoreCase = true) -> 1
+                        else -> 2
+                    }
+                })
+            } else files
+            sorted.forEach { optimizedFile ->
                 val entry = JarEntry(optimizedFile.pathInJar())
                 if (stripTimestamps) {
                     entry.time = CONSTANT_TIMESTAMP

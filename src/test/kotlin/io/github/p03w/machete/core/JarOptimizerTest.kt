@@ -8,7 +8,9 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
+import java.util.jar.JarInputStream
 import java.util.jar.JarOutputStream
+import java.util.jar.Manifest
 
 class JarOptimizerTest {
     private val project = ProjectBuilder.builder().build()
@@ -121,5 +123,58 @@ class JarOptimizerTest {
         val bytes2 = output2.readBytes()
         println("Reproducibility: output1=${bytes1.size} bytes, output2=${bytes2.size} bytes, identical=${bytes1.contentEquals(bytes2)}")
         assertArrayEquals(bytes1, bytes2, "JARs with preserveFileTimestamps=false should be identical regardless of source timestamps")
+    }
+
+    @Test
+    fun `MANIFEST_MF is first entry when reproducibleFileOrder is enabled`(@TempDir tempDir: File) {
+        extension.preserveFileTimestamps.set(false)
+        extension.reproducibleFileOrder.set(true)
+        extension.png.enabled.set(false)
+
+        // Create a JAR where MANIFEST.MF is NOT the first entry
+        val manifest = Manifest()
+        manifest.mainAttributes.putValue("Manifest-Version", "1.0")
+        manifest.mainAttributes.putValue("Main-Class", "com.example.Main")
+
+        val sourceJar = tempDir.resolve("input.jar")
+        JarOutputStream(sourceJar.outputStream().buffered()).use { jar ->
+            // Write other entries first, before the manifest
+            jar.putNextEntry(JarEntry("com/example/Main.class"))
+            jar.write(byteArrayOf(0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte()))
+            jar.closeEntry()
+
+            jar.putNextEntry(JarEntry("data/config.json"))
+            jar.write("""{"key":"value"}""".toByteArray())
+            jar.closeEntry()
+
+            // Write manifest last
+            jar.putNextEntry(JarEntry("META-INF/MANIFEST.MF"))
+            manifest.write(jar)
+            jar.closeEntry()
+        }
+
+        val workDir = tempDir.resolve("work")
+        workDir.mkdirs()
+
+        val optimizer = JarOptimizer(workDir, sourceJar, extension, project)
+        optimizer.unpack()
+        optimizer.optimize()
+
+        val outputJar = tempDir.resolve("output.jar")
+        optimizer.repackTo(outputJar)
+
+        // Verify entry order: MANIFEST.MF should be first
+        JarFile(outputJar).use { jar ->
+            val entryNames = jar.entries().asSequence().map { it.name }.toList()
+            println("Entry order: $entryNames")
+            assertEquals("META-INF/MANIFEST.MF", entryNames.first(),
+                "META-INF/MANIFEST.MF should be the first entry in the JAR")
+        }
+
+        // Verify JarInputStream can read the manifest
+        JarInputStream(outputJar.inputStream().buffered()).use { jis ->
+            assertNotNull(jis.manifest, "JarInputStream should be able to read the manifest")
+            assertEquals("com.example.Main", jis.manifest.mainAttributes.getValue("Main-Class"))
+        }
     }
 }

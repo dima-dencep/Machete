@@ -40,6 +40,14 @@ abstract class MachetePluginExtension {
     abstract val preserveFileTimestamps: Property<Boolean>
 
     /**
+     * Whether to sort JAR entries so that META-INF/MANIFEST.MF comes first.
+     * This ensures the output JAR is readable by [java.util.jar.JarInputStream],
+     * which expects the manifest as the first entry.
+     */
+    @get:Input
+    abstract val reproducibleFileOrder: Property<Boolean>
+
+    /**
      * What task to attach to for finalization, empty string to disable, defaults to `assemble`
      */
     @get:Input
@@ -71,6 +79,7 @@ abstract class MachetePluginExtension {
         enabled.convention(true)
         keepOriginal.convention(false)
         preserveFileTimestamps.convention(false)
+        reproducibleFileOrder.convention(true)
         finalizeAfter.convention("assemble")
     }
 }
