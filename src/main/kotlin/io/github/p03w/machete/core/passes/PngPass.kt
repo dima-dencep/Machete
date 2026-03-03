@@ -8,14 +8,17 @@ import org.gradle.api.Project
 import org.slf4j.Logger
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.concurrent.Semaphore
 
 object PngPass : JarOptimizationPass {
+    private val concurrencyLimit = Semaphore(2)
     override fun shouldRunOnFile(file: File, config: MachetePluginExtension, log: Logger): Boolean {
         val ext = file.extension
         return ext == "png" || config.png.extraFileExtensions.get().contains(ext)
     }
 
     override fun processFile(file: File, config: MachetePluginExtension, log: Logger, workDir: File, project: Project) {
+        concurrencyLimit.acquire()
         try {
             val originalBytes = file.readBytes()
             val image = PngImage(originalBytes)
@@ -38,6 +41,8 @@ object PngPass : JarOptimizationPass {
         } catch (err: Throwable) {
             log.warn("Failed to optimize ${file.relativeTo(workDir).path}")
             err.printStackTrace()
+        } finally {
+            concurrencyLimit.release()
         }
     }
 }
