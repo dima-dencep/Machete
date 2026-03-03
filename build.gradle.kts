@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.utils.extendsFrom
+
 plugins {
     `java-gradle-plugin`
     kotlin("jvm") version "2.3.10"
@@ -14,13 +16,18 @@ repositories {
     mavenCentral()
 }
 
+configurations.testImplementation.extendsFrom(configurations.shadow)
+
 dependencies {
     val asmVer = "9.9.1"
     shadow("org.ow2.asm:asm:$asmVer")
     shadow("org.ow2.asm:asm-tree:$asmVer")
     shadow("org.ow2.asm:asm-commons:$asmVer")
-
     shadow("com.github.depsypher:pngtastic:1.8")
+
+    testImplementation(platform("org.junit:junit-bom:6.0.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 //endregion
 
@@ -38,6 +45,13 @@ tasks.shadowJar {
 
 kotlin {
     jvmToolchain(17)
+}
+
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+    }
 }
 
 tasks.withType<GenerateModuleMetadata> {
