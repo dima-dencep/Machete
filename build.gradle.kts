@@ -37,7 +37,7 @@ tasks.shadowJar {
         project.configurations.getByName("shadow")
     )
 
-    relocate("org.ow2.asm", "s_m.ow2.asm")
+    relocate("org.objectweb.asm", "s_m.asm")
     relocate("com.googlecode.pngtastic", "s_m.pngtastic")
 
     minimize()
