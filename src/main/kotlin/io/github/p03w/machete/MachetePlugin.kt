@@ -22,7 +22,7 @@ class MachetePlugin : Plugin<Project> {
                 return@afterEvaluate
             }
 
-            val unpackOxipngTask = project.tasks.create("unpackOxipng", UnpackOxipngTask::class.java)
+            val unpackOxipngTask = project.tasks.register("unpackOxipng", UnpackOxipngTask::class.java)
 
             val tasksToCheck = knownGoodTasks.toMutableSet()
             extension.additionalTasks.orNull?.let {
@@ -39,7 +39,7 @@ class MachetePlugin : Plugin<Project> {
                 if (found != null) {
                     project.logger.info("Tasks $taskName exists! Generating a hook task")
                     val toOptimize = found.outputs.files
-                    val optimizeTask = project.tasks.create(
+                    val optimizeTask = project.tasks.register(
                         "optimizeOutputsOf${taskName.capital()}",
                         OptimizeJarsTask::class.java
                     ) { optimizeTask ->
@@ -62,7 +62,7 @@ class MachetePlugin : Plugin<Project> {
                         optimizeTask.outputs.cacheIf { extension.keepOriginal.get() }
 
                         // Give everything its own sibling dir to prevent overlapping on parallel tasks
-                        optimizeTask.buildDir.set(project.buildDir.resolve("machete-build").resolve(taskName))
+                        optimizeTask.buildDir.set(project.layout.buildDirectory.get().asFile.resolve("machete-build").resolve(taskName))
                         optimizeTask.extension.set(extension)
 
                         // Make sure oxipng is set up before we do anything
@@ -74,7 +74,7 @@ class MachetePlugin : Plugin<Project> {
                     if (after.isNotBlank()) {
                         project.tasks.getByName(after).finalizedBy(optimizeTask)
                     }
-                    optimizeTask.dependsOn(found)
+                    optimizeTask.configure { it.dependsOn(found) }
                 }
             }
 
