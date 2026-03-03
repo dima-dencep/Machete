@@ -7,7 +7,11 @@ object AddMinecraftFileTypesPatch : Patch {
     private val minecraftPlugins = setOf(
         "net.minecraftforge.gradle",
         "fabric-loom",
-        "org.quiltmc.loom"
+        "org.quiltmc.loom",
+        "net.neoforged.moddev",
+        "xyz.wagyourtail.unimined",
+        "net.fabricmc.fabric-loom-remap",
+        "net.fabricmc.fabric-loom"
     )
 
     override fun shouldApply(project: Project, config: MachetePluginExtension): Boolean {
