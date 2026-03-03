@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "org.redlance.dima_dencep.gradle"
-version = "1.0.0"
+version = "1.0.1"
 description = "A gradle plugin to optimize built jars through individual file optimizations and increased compression, works best on resource heavy jars"
 
 //region Dependencies
