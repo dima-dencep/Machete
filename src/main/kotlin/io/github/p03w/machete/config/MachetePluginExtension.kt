@@ -3,6 +3,7 @@ package io.github.p03w.machete.config
 import io.github.p03w.machete.config.optimizations.JIJConfig
 import io.github.p03w.machete.config.optimizations.JsonConfig
 import io.github.p03w.machete.config.optimizations.PngConfig
+import io.github.p03w.machete.config.optimizations.TomlConfig
 import io.github.p03w.machete.config.optimizations.XmlConfig
 import io.github.p03w.machete.config.optimizations.lossy.LVTStripConfig
 import io.github.p03w.machete.config.optimizations.lossy.SourceFileStripConfig
@@ -54,6 +55,9 @@ abstract class MachetePluginExtension {
 
     @get:Nested
     abstract val xml: XmlConfig
+
+    @get:Nested
+    abstract val toml: TomlConfig
 
     @get:Nested
     abstract val lvtStriping: LVTStripConfig

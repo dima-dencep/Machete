@@ -34,6 +34,7 @@ class JarOptimizer(
         if (config.png.enabled.get()) add(PngPass)
         if (config.json.enabled.get()) add(JsonPass)
         if (config.xml.enabled.get()) add(XmlPass)
+        if (config.toml.enabled.get()) add(TomlPass)
         add(ClassFilePass)
     }
 
