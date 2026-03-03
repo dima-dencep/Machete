@@ -24,6 +24,7 @@ dependencies {
     shadow("org.ow2.asm:asm-tree:$asmVer")
     shadow("org.ow2.asm:asm-commons:$asmVer")
     shadow("com.github.depsypher:pngtastic:1.8")
+    shadow("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -39,6 +40,7 @@ tasks.shadowJar {
 
     relocate("org.objectweb.asm", "s_m.asm")
     relocate("com.googlecode.pngtastic", "s_m.pngtastic")
+    relocate("kotlinx.coroutines", "s_m.coroutines")
 
     minimize()
 }

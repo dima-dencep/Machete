@@ -6,6 +6,10 @@ import io.github.p03w.machete.util.allWithExtension
 import io.github.p03w.machete.util.resolveAndMake
 import io.github.p03w.machete.util.resolveAndMakeSiblingDir
 import io.github.p03w.machete.util.unzip
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.gradle.api.Project
 import java.io.File
 import java.nio.file.Files
@@ -69,14 +73,20 @@ class JarOptimizer(
         }
     }
 
-    fun optimize() {
-        passes.forEach {
-            workDir.walkBottomUp().filter { !toIgnore.contains(it.name) }.forEach { file ->
-                if (it.shouldRunOnFile(file, config, log)) {
-                    it.processFile(file, config, log, workDir, project)
+    fun optimize() = runBlocking(Dispatchers.Default) {
+        val files = workDir.walkBottomUp()
+            .filter { it.isFile && !toIgnore.contains(it.name) }
+            .toList()
+
+        files.map { file ->
+            launch {
+                passes.forEach { pass ->
+                    if (pass.shouldRunOnFile(file, config, log)) {
+                        pass.processFile(file, config, log, workDir, project)
+                    }
                 }
             }
-        }
+        }.joinAll()
 
         if (config.jij.enabled.get()) optimizeJarInJar()
     }
