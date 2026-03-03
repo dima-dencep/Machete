@@ -37,7 +37,7 @@ pluginManagement {
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("org.redlance.dima_dencep.gradle.machete") version "1.0.0"
+    id("org.redlance.dima_dencep.gradle.machete") version "1.0.2"
 }
 ```
 

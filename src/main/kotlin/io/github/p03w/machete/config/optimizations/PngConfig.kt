@@ -37,10 +37,10 @@ abstract class PngConfig {
 
     init {
         enabled.convention(true)
-        compressionLevel.convention(9)
+        compressionLevel.convention(5)
         removeGamma.convention(false)
         compressor.convention(Compressor.ZOPFLI)
-        compressorIterations.convention(32)
+        compressorIterations.convention(null)
     }
 
     @Suppress("unused")
