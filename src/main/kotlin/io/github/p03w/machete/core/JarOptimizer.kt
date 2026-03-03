@@ -75,7 +75,7 @@ class JarOptimizer(
 
     fun optimize() = runBlocking(Dispatchers.Default) {
         val files = workDir.walkBottomUp()
-            .filter { it.isFile && !toIgnore.contains(it.name) }
+            .filter { it.isFile && !toIgnore.contains(it.name) && it.name !in OS_JUNK }
             .toList()
 
         files.map { file ->
@@ -110,7 +110,7 @@ class JarOptimizer(
 
             // .jars are handled by the children list, so that we can place them properly
             val files = workDir.walkBottomUp().toList().filter {
-                it.isFile && (it.extension != "jar" || !config.jij.enabled.get())
+                it.isFile && it.name !in OS_JUNK && (it.extension != "jar" || !config.jij.enabled.get())
             }
             val sorted = if (config.reproducibleFileOrder.get()) {
                 files.sortedWith(compareBy {
@@ -147,5 +147,8 @@ class JarOptimizer(
     companion object {
         // Feb 1, 1980 — same constant Gradle uses for reproducible builds
         val CONSTANT_TIMESTAMP = GregorianCalendar(1980, 1, 1, 0, 0, 0).timeInMillis
+
+        // OS metadata files that should never end up in a JAR
+        private val OS_JUNK = setOf(".DS_Store", "Thumbs.db", "desktop.ini")
     }
 }
