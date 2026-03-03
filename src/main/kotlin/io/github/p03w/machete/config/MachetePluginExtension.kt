@@ -15,16 +15,10 @@ import org.gradle.api.tasks.Nested
 @Suppress("LeakingThis")
 abstract class MachetePluginExtension {
     /**
-     * A set of strings denoting additional tasks to pull output jars from
+     * A set of task names whose output jars should be optimized
      */
     @get:Input
-    abstract val additionalTasks: SetProperty<String>
-
-    /**
-     * A set of strings denoting tasks to exclude output jars from
-     */
-    @get:Input
-    abstract val ignoredTasks: SetProperty<String>
+    abstract val tasks: SetProperty<String>
 
     /**
      * If the plugin should do anything at all, mainly for debugging or other purposes such as not running on local builds
@@ -66,6 +60,7 @@ abstract class MachetePluginExtension {
     abstract val sourceFileStriping: SourceFileStripConfig
 
     init {
+        tasks.convention(setOf("jar", "remapJar", "shadowJar"))
         enabled.convention(true)
         keepOriginal.convention(false)
         finalizeAfter.convention("assemble")

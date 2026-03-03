@@ -7,7 +7,6 @@ import io.github.p03w.machete.patches.patches
 import io.github.p03w.machete.tasks.DumpTasksWithOutputJarsTask
 import io.github.p03w.machete.tasks.OptimizeJarsTask
 import io.github.p03w.machete.util.capital
-import io.github.p03w.machete.util.knownGoodTasks
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
@@ -21,13 +20,7 @@ class MachetePlugin : Plugin<Project> {
                 return@afterEvaluate
             }
 
-            val tasksToCheck = knownGoodTasks.toMutableSet()
-            extension.additionalTasks.orNull?.let {
-                tasksToCheck.addAll(it)
-            }
-            extension.ignoredTasks.orNull?.let {
-                tasksToCheck.removeAll(it)
-            }
+            val tasksToCheck = extension.tasks.get()
 
             project.logger.info("All tasks to check: $tasksToCheck")
 
