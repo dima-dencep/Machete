@@ -80,4 +80,17 @@ gradlePlugin {
         }
     }
 }
+
+publishing {
+    repositories {
+        maven {
+            name = "RedlanceMinecraft"
+            url = uri("https://repo.redlance.org/public")
+            credentials {
+                username = "dima_dencep"
+                password = System.getenv("MAVEN_PASSWORD")
+            }
+        }
+    }
+}
 //endregion
