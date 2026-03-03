@@ -33,6 +33,13 @@ abstract class MachetePluginExtension {
     abstract val keepOriginal: Property<Boolean>
 
     /**
+     * Whether to preserve original file timestamps in the output jar.
+     * When false, all entries get a constant timestamp for reproducible builds.
+     */
+    @get:Input
+    abstract val preserveFileTimestamps: Property<Boolean>
+
+    /**
      * What task to attach to for finalization, empty string to disable, defaults to `assemble`
      */
     @get:Input
@@ -63,6 +70,7 @@ abstract class MachetePluginExtension {
         tasks.convention(setOf("jar", "remapJar", "shadowJar"))
         enabled.convention(true)
         keepOriginal.convention(false)
+        preserveFileTimestamps.convention(false)
         finalizeAfter.convention("assemble")
     }
 }

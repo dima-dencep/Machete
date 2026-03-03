@@ -21,6 +21,9 @@ fun ZipInputStream.unzip(outputDir: File) {
         } else {
             Files.createDirectories(resolvedPath.parent)
             Files.copy(this, resolvedPath, StandardCopyOption.REPLACE_EXISTING)
+            if (entry.time > 0) {
+                resolvedPath.toFile().setLastModified(entry.time)
+            }
         }
 
         entry = nextEntry

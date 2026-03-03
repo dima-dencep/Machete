@@ -9,6 +9,7 @@ import io.github.p03w.machete.util.unzip
 import org.gradle.api.Project
 import java.io.File
 import java.nio.file.Files
+import java.util.GregorianCalendar
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
@@ -90,6 +91,8 @@ class JarOptimizer(
             jar.setLevel(Deflater.BEST_COMPRESSION)
         }
 
+        val stripTimestamps = !config.preserveFileTimestamps.get()
+
         jar.use {
             fun File.pathInJar(): String {
                 return this.relativeTo(workDir).path.replace("\\", "/")
@@ -100,6 +103,11 @@ class JarOptimizer(
                 it.isFile && (it.extension != "jar" || !config.jij.enabled.get())
             }.forEach { optimizedFile ->
                 val entry = JarEntry(optimizedFile.pathInJar())
+                if (stripTimestamps) {
+                    entry.time = CONSTANT_TIMESTAMP
+                } else {
+                    entry.time = optimizedFile.lastModified()
+                }
                 jar.putNextEntry(entry)
                 Files.copy(optimizedFile.toPath(), it)
                 jar.closeEntry()
@@ -107,10 +115,16 @@ class JarOptimizer(
 
             children.forEach { (path, childJar) ->
                 val entry = JarEntry(path.replace("\\", "/"))
+                if (stripTimestamps) entry.time = CONSTANT_TIMESTAMP
                 jar.putNextEntry(entry)
                 Files.copy(childJar.toPath(), it)
                 jar.closeEntry()
             }
         }
+    }
+
+    companion object {
+        // Feb 1, 1980 — same constant Gradle uses for reproducible builds
+        val CONSTANT_TIMESTAMP = GregorianCalendar(1980, 1, 1, 0, 0, 0).timeInMillis
     }
 }
