@@ -7,7 +7,7 @@ import org.gradle.api.tasks.Input
 @Suppress("LeakingThis")
 abstract class XmlConfig {
     /**
-     * A list of file extensions to also process as JSON files
+     * A list of file extensions to also process as XML files
      */
     @get:Input
     abstract val extraFileExtensions: ListProperty<String>
