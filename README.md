@@ -40,7 +40,7 @@ pluginManagement {
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("org.redlance.dima_dencep.gradle.machete") version "1.0.3"
+    id("org.redlance.dima_dencep.gradle.machete") version "2.0.0"
 }
 ```
 
@@ -105,5 +105,18 @@ tasks.withType<OptimizeJarsTask>().configureEach {
 }
 ```
 
-To disable optimization for a build, disable the task the standard Gradle way
-(`tasks.named("optimizeJar") { enabled = false }`).
+### Disabling
+
+There is no plugin-wide on/off switch — an `OptimizeJarsTask` only runs if you register it, so you
+turn optimization off the standard Gradle way, by disabling the task:
+
+```kotlin
+// a single task
+tasks.named("optimizeJar") { enabled = false }
+
+// or every optimize task, e.g. skip on local builds
+tasks.withType<OptimizeJarsTask>().configureEach {
+    enabled = !project.hasProperty("localBuild")
+    // onlyIf { ... } works too
+}
+```

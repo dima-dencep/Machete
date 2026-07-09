@@ -1,3 +1,4 @@
+import org.gradle.plugin.compatibility.compatibility
 import org.jetbrains.kotlin.gradle.utils.extendsFrom
 
 plugins {
@@ -8,7 +9,7 @@ plugins {
 }
 
 group = "org.redlance.dima_dencep.gradle"
-version = "1.0.3"
+version = "2.0.0"
 description = "A gradle plugin to optimize built jars through individual file optimizations and increased compression, works best on resource heavy jars"
 
 //region Dependencies
@@ -83,6 +84,11 @@ gradlePlugin {
             description = project.description
             tags = listOf("jar", "build", "jvm", "compress", "optimize")
             implementationClass = "io.github.p03w.machete.MachetePlugin"
+            compatibility {
+                features {
+                    configurationCache = true
+                }
+            }
         }
     }
 }
