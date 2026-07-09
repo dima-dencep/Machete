@@ -2,13 +2,13 @@ import org.jetbrains.kotlin.gradle.utils.extendsFrom
 
 plugins {
     `java-gradle-plugin`
-    kotlin("jvm") version "2.3.10"
-    id("com.gradle.plugin-publish") version "2.0.0"
-    id("com.gradleup.shadow") version "9.3.2"
+    kotlin("jvm") version "2.4.0"
+    id("com.gradle.plugin-publish") version "2.1.0"
+    id("com.gradleup.shadow") version "9.5.1"
 }
 
 group = "org.redlance.dima_dencep.gradle"
-version = "1.0.2"
+version = "1.0.3"
 description = "A gradle plugin to optimize built jars through individual file optimizations and increased compression, works best on resource heavy jars"
 
 //region Dependencies
@@ -19,14 +19,14 @@ repositories {
 configurations.testImplementation.extendsFrom(configurations.shadow)
 
 dependencies {
-    val asmVer = "9.9.1"
+    val asmVer = "9.10.1"
     shadow("org.ow2.asm:asm:$asmVer")
     shadow("org.ow2.asm:asm-tree:$asmVer")
     shadow("org.ow2.asm:asm-commons:$asmVer")
     shadow("com.github.depsypher:pngtastic:1.8")
-    shadow("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    shadow("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 
-    testImplementation(platform("org.junit:junit-bom:6.0.3"))
+    testImplementation(platform("org.junit:junit-bom:6.1.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
