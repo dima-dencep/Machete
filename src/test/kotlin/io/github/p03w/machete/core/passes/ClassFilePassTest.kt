@@ -4,10 +4,8 @@ import io.github.p03w.machete.config.MachetePluginExtension
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import org.objectweb.asm.*
 import org.objectweb.asm.tree.ClassNode
-import java.io.File
 
 class ClassFilePassTest {
     private val project = ProjectBuilder.builder().build()
@@ -38,19 +36,16 @@ class ClassFilePassTest {
     }
 
     @Test
-    fun `strips source file attribute`(@TempDir workDir: File) {
+    fun `strips source file attribute`() {
         extension.sourceFileStriping.enabled.set(true)
         extension.lvtStriping.enabled.set(false)
 
-        val file = workDir.resolve("TestClass.class")
         val original = createTestClass()
-        file.writeBytes(original)
 
-        assertTrue(ClassFilePass.shouldRunOnFile(file, extension, project.logger))
-        ClassFilePass.processFile(file, extension, project.logger, workDir, project)
+        assertTrue(ClassFilePass.shouldRunOnFile("TestClass.class", extension, project.logger))
+        val result = ClassFilePass.processFile("TestClass.class", original, extension, project.logger)
 
-        val result = file.readBytes()
-        println("CLASS ${file.name} (strip source): ${original.size} -> ${result.size} bytes (saved ${original.size - result.size})")
+        println("CLASS TestClass.class (strip source): ${original.size} -> ${result.size} bytes (saved ${original.size - result.size})")
 
         val node = ClassNode()
         ClassReader(result).accept(node, 0)
@@ -58,18 +53,14 @@ class ClassFilePassTest {
     }
 
     @Test
-    fun `strips local variable table`(@TempDir workDir: File) {
+    fun `strips local variable table`() {
         extension.sourceFileStriping.enabled.set(false)
         extension.lvtStriping.enabled.set(true)
 
-        val file = workDir.resolve("TestClass.class")
         val original = createTestClass()
-        file.writeBytes(original)
+        val result = ClassFilePass.processFile("TestClass.class", original, extension, project.logger)
 
-        ClassFilePass.processFile(file, extension, project.logger, workDir, project)
-
-        val result = file.readBytes()
-        println("CLASS ${file.name} (strip LVT): ${original.size} -> ${result.size} bytes (saved ${original.size - result.size})")
+        println("CLASS TestClass.class (strip LVT): ${original.size} -> ${result.size} bytes (saved ${original.size - result.size})")
 
         val node = ClassNode()
         ClassReader(result).accept(node, 0)
@@ -79,8 +70,7 @@ class ClassFilePassTest {
     }
 
     @Test
-    fun `ignores non-class files`(@TempDir workDir: File) {
-        val file = workDir.resolve("test.txt")
-        assertFalse(ClassFilePass.shouldRunOnFile(file, extension, project.logger))
+    fun `ignores non-class files`() {
+        assertFalse(ClassFilePass.shouldRunOnFile("test.txt", extension, project.logger))
     }
 }

@@ -51,8 +51,6 @@ class MachetePlugin : Plugin<Project> {
                         // Gradle does handle this for us, but doesn't hurt to be explicit
                         optimizeTask.outputs.cacheIf { extension.keepOriginal.get() }
 
-                        // Give everything its own sibling dir to prevent overlapping on parallel tasks
-                        optimizeTask.buildDir.set(project.layout.buildDirectory.get().asFile.resolve("machete-build").resolve(taskName))
                         optimizeTask.extension.set(extension)
                     }
 

@@ -2,26 +2,24 @@ package io.github.p03w.machete.core.passes
 
 import io.github.p03w.machete.config.MachetePluginExtension
 import io.github.p03w.machete.core.libs.toml.TomlMinifier
-import org.gradle.api.Project
+import io.github.p03w.machete.util.entryExtension
 import org.slf4j.Logger
-import java.io.File
 
 object TomlPass : JarOptimizationPass {
-    override fun shouldRunOnFile(file: File, config: MachetePluginExtension, log: Logger): Boolean {
-        val ext = file.extension
+    override fun shouldRunOnFile(name: String, config: MachetePluginExtension, log: Logger): Boolean {
+        val ext = name.entryExtension
         return ext == "toml" || config.toml.extraFileExtensions.get().contains(ext)
     }
 
-    override fun processFile(file: File, config: MachetePluginExtension, log: Logger, workDir: File, project: Project) {
-        try {
-            val original = file.readText()
+    override fun processFile(name: String, bytes: ByteArray, config: MachetePluginExtension, log: Logger): ByteArray {
+        return try {
+            val original = bytes.decodeToString()
             val minified = TomlMinifier(original).toString()
-            if (minified.length < original.length) {
-                file.writeText(minified)
-            }
+            if (minified.length < original.length) minified.encodeToByteArray() else bytes
         } catch (err: Throwable) {
-            log.warn("Failed to optimize ${file.relativeTo(workDir).path}")
+            log.warn("Failed to optimize $name")
             err.printStackTrace()
+            bytes
         }
     }
 }

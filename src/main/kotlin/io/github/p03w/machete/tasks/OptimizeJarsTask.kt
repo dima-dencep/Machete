@@ -2,36 +2,38 @@ package io.github.p03w.machete.tasks
 
 import io.github.p03w.machete.config.MachetePluginExtension
 import io.github.p03w.machete.core.JarOptimizer
-import io.github.p03w.machete.util.resolveAndMakeSibling
 import org.gradle.api.DefaultTask
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.TaskAction
-import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 abstract class OptimizeJarsTask : DefaultTask() {
-    @get:Input
-    abstract val buildDir: Property<File>
-
     @get:Nested
     abstract val extension: Property<MachetePluginExtension>
 
     @TaskAction
     fun optimizeJars() {
-        inputs.files.forEach {
-            val tempJarDir = buildDir.get().resolve("root-jar")
-            tempJarDir.deleteRecursively()
-            tempJarDir.mkdirs()
+        val config = extension.get()
+        inputs.files.forEach { file ->
+            val optimizer = JarOptimizer(config, project)
 
-            val optimizer = JarOptimizer(tempJarDir, it, extension.get(), project)
-            optimizer.unpack()
-            optimizer.optimize()
-
-            if (extension.get().keepOriginal.get()) {
-                optimizer.repackTo(it.resolveAndMakeSibling(it.nameWithoutExtension + "-optimized.jar"))
+            val target = if (config.keepOriginal.get()) {
+                file.resolveSibling(file.nameWithoutExtension + "-optimized.jar")
             } else {
-                optimizer.repackTo(it)
+                file
+            }
+
+            // We stream straight from `file` (via ZipFile) and cannot write over it while reading, so
+            // the result goes to a sibling temp file that is atomically moved into place afterwards.
+            // A failure mid-optimization therefore leaves the original jar untouched.
+            val tmp = file.resolveSibling(file.name + ".machete-tmp")
+            try {
+                optimizer.optimize(file, tmp)
+                Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            } finally {
+                tmp.delete()
             }
         }
     }

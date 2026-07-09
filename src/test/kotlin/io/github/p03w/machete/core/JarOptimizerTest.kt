@@ -5,6 +5,7 @@ import org.gradle.testfixtures.ProjectBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
@@ -29,6 +30,10 @@ class JarOptimizerTest {
         }
     }
 
+    private fun optimize(sourceJar: File, outputJar: File) {
+        JarOptimizer(extension, project).optimize(sourceJar, outputJar)
+    }
+
     @Test
     fun `preserves timestamps when preserveFileTimestamps is true`(@TempDir tempDir: File) {
         extension.preserveFileTimestamps.set(true)
@@ -40,15 +45,8 @@ class JarOptimizerTest {
             "test.json" to Pair("""{"key":"value"}""".toByteArray(), originalTimestamp)
         ))
 
-        val workDir = tempDir.resolve("work")
-        workDir.mkdirs()
-
-        val optimizer = JarOptimizer(workDir, sourceJar, extension, project)
-        optimizer.unpack()
-        optimizer.optimize()
-
         val outputJar = tempDir.resolve("output.jar")
-        optimizer.repackTo(outputJar)
+        optimize(sourceJar, outputJar)
 
         JarFile(outputJar).use { jar ->
             val entry = jar.getJarEntry("test.json")
@@ -69,15 +67,8 @@ class JarOptimizerTest {
             "b.json" to Pair("""{ "other" : "data" }""".toByteArray(), 1_600_000_000_000L)
         ))
 
-        val workDir = tempDir.resolve("work")
-        workDir.mkdirs()
-
-        val optimizer = JarOptimizer(workDir, sourceJar, extension, project)
-        optimizer.unpack()
-        optimizer.optimize()
-
         val outputJar = tempDir.resolve("output.jar")
-        optimizer.repackTo(outputJar)
+        optimize(sourceJar, outputJar)
 
         JarFile(outputJar).use { jar ->
             jar.entries().asSequence().forEach { entry ->
@@ -98,26 +89,14 @@ class JarOptimizerTest {
         // Build 1
         val sourceJar1 = tempDir.resolve("input1.jar")
         createTestJar(sourceJar1, mapOf("test.json" to Pair(content, 1_700_000_000_000L)))
-
-        val workDir1 = tempDir.resolve("work1")
-        workDir1.mkdirs()
-        val optimizer1 = JarOptimizer(workDir1, sourceJar1, extension, project)
-        optimizer1.unpack()
-        optimizer1.optimize()
         val output1 = tempDir.resolve("output1.jar")
-        optimizer1.repackTo(output1)
+        optimize(sourceJar1, output1)
 
         // Build 2 — different source timestamp
         val sourceJar2 = tempDir.resolve("input2.jar")
         createTestJar(sourceJar2, mapOf("test.json" to Pair(content, 1_600_000_000_000L)))
-
-        val workDir2 = tempDir.resolve("work2")
-        workDir2.mkdirs()
-        val optimizer2 = JarOptimizer(workDir2, sourceJar2, extension, project)
-        optimizer2.unpack()
-        optimizer2.optimize()
         val output2 = tempDir.resolve("output2.jar")
-        optimizer2.repackTo(output2)
+        optimize(sourceJar2, output2)
 
         val bytes1 = output1.readBytes()
         val bytes2 = output2.readBytes()
@@ -153,15 +132,8 @@ class JarOptimizerTest {
             jar.closeEntry()
         }
 
-        val workDir = tempDir.resolve("work")
-        workDir.mkdirs()
-
-        val optimizer = JarOptimizer(workDir, sourceJar, extension, project)
-        optimizer.unpack()
-        optimizer.optimize()
-
         val outputJar = tempDir.resolve("output.jar")
-        optimizer.repackTo(outputJar)
+        optimize(sourceJar, outputJar)
 
         // Verify entry order: MANIFEST.MF should be first
         JarFile(outputJar).use { jar ->
@@ -176,5 +148,111 @@ class JarOptimizerTest {
             assertNotNull(jis.manifest, "JarInputStream should be able to read the manifest")
             assertEquals("com.example.Main", jis.manifest.mainAttributes.getValue("Main-Class"))
         }
+    }
+
+    @Test
+    fun `keeps entries whose names differ only in case`(@TempDir tempDir: File) {
+        // Regression test: extracting a jar to a case-insensitive filesystem (macOS/Windows) used to
+        // collapse entries like `a.class` and `A.class` — common in obfuscated jars — into one.
+        // The in-memory optimizer must preserve both, with their content intact.
+        extension.preserveFileTimestamps.set(false)
+        extension.png.enabled.set(false)
+
+        val lowerBytes = byteArrayOf(0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte(), 0x01)
+        val upperBytes = byteArrayOf(0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte(), 0x02)
+
+        val sourceJar = tempDir.resolve("input.jar")
+        JarOutputStream(sourceJar.outputStream().buffered()).use { jar ->
+            jar.putNextEntry(JarEntry("com/example/a.class"))
+            jar.write(lowerBytes)
+            jar.closeEntry()
+
+            jar.putNextEntry(JarEntry("com/example/A.class"))
+            jar.write(upperBytes)
+            jar.closeEntry()
+        }
+
+        val outputJar = tempDir.resolve("output.jar")
+        optimize(sourceJar, outputJar)
+
+        // Read every entry back out, keyed case-sensitively
+        val found = linkedMapOf<String, ByteArray>()
+        JarInputStream(outputJar.inputStream().buffered()).use { jis ->
+            var entry = jis.nextJarEntry
+            while (entry != null) {
+                if (!entry.isDirectory) found[entry.name] = jis.readBytes()
+                entry = jis.nextJarEntry
+            }
+        }
+
+        println("Case-sensitivity: recovered entries=${found.keys}")
+        assertEquals(2, found.size, "Both case-variant entries must survive optimization")
+        assertTrue(found.containsKey("com/example/a.class"), "lowercase a.class must survive")
+        assertTrue(found.containsKey("com/example/A.class"), "uppercase A.class must survive")
+        assertArrayEquals(lowerBytes, found["com/example/a.class"], "a.class content must be intact")
+        assertArrayEquals(upperBytes, found["com/example/A.class"], "A.class content must be intact")
+    }
+
+    @Test
+    fun `optimizes nested jars while preserving case-variant entries inside them`(@TempDir tempDir: File) {
+        // jar-in-jar is enabled by default; a nested jar must be optimized (its json minified) yet
+        // still round-trip both `a.class`/`A.class` variants.
+        extension.preserveFileTimestamps.set(false)
+        extension.png.enabled.set(false)
+
+        val fatJson = """{ "key" : "value" }"""
+        val lowerBytes = byteArrayOf(0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte(), 0x01)
+        val upperBytes = byteArrayOf(0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte(), 0x02)
+
+        // Build the inner jar in memory
+        val innerBytes = ByteArrayOutputStream().use { baos ->
+            JarOutputStream(baos.buffered()).use { jar ->
+                jar.putNextEntry(JarEntry("data/config.json"))
+                jar.write(fatJson.toByteArray())
+                jar.closeEntry()
+                jar.putNextEntry(JarEntry("pkg/a.class"))
+                jar.write(lowerBytes)
+                jar.closeEntry()
+                jar.putNextEntry(JarEntry("pkg/A.class"))
+                jar.write(upperBytes)
+                jar.closeEntry()
+            }
+            baos.toByteArray()
+        }
+
+        val sourceJar = tempDir.resolve("outer.jar")
+        JarOutputStream(sourceJar.outputStream().buffered()).use { jar ->
+            jar.putNextEntry(JarEntry("META-INF/jars/inner.jar"))
+            jar.write(innerBytes)
+            jar.closeEntry()
+        }
+
+        val outputJar = tempDir.resolve("output.jar")
+        optimize(sourceJar, outputJar)
+
+        // Pull the (now optimized) nested jar back out of the output
+        val optimizedInner = JarFile(outputJar).use { jar ->
+            val entry = jar.getJarEntry("META-INF/jars/inner.jar")
+            assertNotNull(entry, "nested jar must still be present")
+            jar.getInputStream(entry).use { it.readBytes() }
+        }
+        println("JIJ: inner jar ${innerBytes.size} -> ${optimizedInner.size} bytes")
+
+        val innerEntries = linkedMapOf<String, ByteArray>()
+        JarInputStream(optimizedInner.inputStream()).use { jis ->
+            var entry = jis.nextJarEntry
+            while (entry != null) {
+                if (!entry.isDirectory) innerEntries[entry.name] = jis.readBytes()
+                entry = jis.nextJarEntry
+            }
+        }
+
+        println("JIJ: recovered nested entries=${innerEntries.keys}")
+        assertEquals("""{"key":"value"}""", innerEntries["data/config.json"]?.decodeToString(),
+            "nested json should have been minified")
+        assertTrue(innerEntries.containsKey("pkg/a.class"), "nested lowercase a.class must survive")
+        assertTrue(innerEntries.containsKey("pkg/A.class"), "nested uppercase A.class must survive")
+        assertArrayEquals(lowerBytes, innerEntries["pkg/a.class"], "nested a.class content must be intact")
+        assertArrayEquals(upperBytes, innerEntries["pkg/A.class"], "nested A.class content must be intact")
     }
 }

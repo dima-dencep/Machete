@@ -1,12 +1,11 @@
 package io.github.p03w.machete.core.passes
 
 import io.github.p03w.machete.config.MachetePluginExtension
-import org.gradle.api.Project
+import io.github.p03w.machete.util.entryExtension
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.tree.ClassNode
 import org.slf4j.Logger
-import java.io.File
 import java.util.*
 
 object ClassFilePass : JarOptimizationPass {
@@ -15,41 +14,36 @@ object ClassFilePass : JarOptimizationPass {
         SOURCE_FILE
     }
 
-    override fun shouldRunOnFile(file: File, config: MachetePluginExtension, log: Logger): Boolean {
-        val ext = file.extension
-        return ext == "class" && (
+    override fun shouldRunOnFile(name: String, config: MachetePluginExtension, log: Logger): Boolean {
+        return name.entryExtension == "class" && (
                 config.sourceFileStriping.enabled.get() ||
                 config.lvtStriping.enabled.get()
         )
     }
 
-    override fun processFile(file: File, config: MachetePluginExtension, log: Logger, workDir: File, project: Project) {
+    override fun processFile(name: String, bytes: ByteArray, config: MachetePluginExtension, log: Logger): ByteArray {
         val toStrip = EnumSet.noneOf(StripData::class.java)
         if (config.lvtStriping.enabled.get())        toStrip.add(StripData.LVT)
         if (config.sourceFileStriping.enabled.get()) toStrip.add(StripData.SOURCE_FILE)
 
-        if (toStrip.isNotEmpty()) {
-            val reader = file.inputStream().buffered().use {
-                ClassReader(it)
-            }
+        if (toStrip.isEmpty()) return bytes
 
-            val node = ClassNode()
-            reader.accept(node, 0)
+        val reader = ClassReader(bytes)
 
-            if (toStrip.contains(StripData.SOURCE_FILE)) node.sourceFile = null
+        val node = ClassNode()
+        reader.accept(node, 0)
 
-            if (toStrip.contains(StripData.LVT)) {
-                node.methods.forEach {
-                    it.localVariables?.clear()
-                }
-            }
+        if (toStrip.contains(StripData.SOURCE_FILE)) node.sourceFile = null
 
-            val writer = ClassWriter(0)
-            node.accept(writer)
-
-            file.outputStream().use { stream ->
-                stream.write(writer.toByteArray())
+        if (toStrip.contains(StripData.LVT)) {
+            node.methods.forEach {
+                it.localVariables?.clear()
             }
         }
+
+        val writer = ClassWriter(0)
+        node.accept(writer)
+
+        return writer.toByteArray()
     }
 }

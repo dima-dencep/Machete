@@ -4,24 +4,23 @@ import com.googlecode.pngtastic.core.PngImage
 import com.googlecode.pngtastic.core.PngOptimizer
 import io.github.p03w.machete.config.MachetePluginExtension
 import io.github.p03w.machete.config.optimizations.PngConfig
-import org.gradle.api.Project
+import io.github.p03w.machete.util.entryExtension
 import org.slf4j.Logger
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.util.concurrent.Semaphore
 
 object PngPass : JarOptimizationPass {
     private val concurrencyLimit = Semaphore(2)
-    override fun shouldRunOnFile(file: File, config: MachetePluginExtension, log: Logger): Boolean {
-        val ext = file.extension
+
+    override fun shouldRunOnFile(name: String, config: MachetePluginExtension, log: Logger): Boolean {
+        val ext = name.entryExtension
         return ext == "png" || config.png.extraFileExtensions.get().contains(ext)
     }
 
-    override fun processFile(file: File, config: MachetePluginExtension, log: Logger, workDir: File, project: Project) {
+    override fun processFile(name: String, bytes: ByteArray, config: MachetePluginExtension, log: Logger): ByteArray {
         concurrencyLimit.acquire()
-        try {
-            val originalBytes = file.readBytes()
-            val image = PngImage(originalBytes)
+        return try {
+            val image = PngImage(bytes)
 
             val optimizer = PngOptimizer()
             val compressor = config.png.compressor.get()
@@ -34,13 +33,12 @@ object PngPass : JarOptimizationPass {
                 optimized.writeDataOutputStream(baos)
                 val optimizedBytes = baos.toByteArray()
 
-                if (optimizedBytes.size < originalBytes.size) {
-                    file.writeBytes(optimizedBytes)
-                }
+                if (optimizedBytes.size < bytes.size) optimizedBytes else bytes
             }
         } catch (err: Throwable) {
-            log.warn("Failed to optimize ${file.relativeTo(workDir).path}")
+            log.warn("Failed to optimize $name")
             err.printStackTrace()
+            bytes
         } finally {
             concurrencyLimit.release()
         }
