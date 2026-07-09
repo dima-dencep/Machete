@@ -3,7 +3,10 @@
 A Gradle plugin that optimizes the size of output JARs through individual file optimizations.
 Inspired by the [Detonater](https://github.com/EnnuiL/Detonater) project. Fork of [P03W/Machete](https://github.com/P03W/Machete).
 
-Simply applying the plugin should be enough in a standard environment — it collects output JARs from known artifact-producing tasks and optimizes them after the `assemble` task.
+Applying the plugin gives you the `OptimizeJarsTask` task type and the `machete { }` configuration
+block; you register the task yourself against exactly the jars you want optimized (see **Usage**).
+Optimization runs fully in memory (jars are never extracted to disk) and is compatible with the
+Gradle configuration cache.
 
 **Works best on resource-heavy projects.** Code-heavy ones will see minimal improvement.
 
@@ -37,33 +40,46 @@ pluginManagement {
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("org.redlance.dima_dencep.gradle.machete") version "1.0.2"
+    id("org.redlance.dima_dencep.gradle.machete") version "1.0.3"
 }
 ```
 
-### Configuration
+### Usage
 
-All options are configured via the `machete` block:
+Register one `OptimizeJarsTask` per jar you want optimized — it takes one `input` jar and writes one
+`output` jar — then wire it into your build:
 
 ```kotlin
-machete {
-    // Tasks whose output JARs to optimize (default: jar, remapJar, shadowJar)
-    tasks.set(setOf("jar", "remapJar", "shadowJar"))
+// build.gradle.kts
+import io.github.p03w.machete.tasks.OptimizeJarsTask
 
-    // Disable the plugin entirely (e.g. for local builds)
-    enabled = false
+val optimizeJar = tasks.register<OptimizeJarsTask>("optimizeJar") {
+    input.set(tasks.jar.flatMap { it.archiveFile })
+    output.set(layout.buildDirectory.file("libs/${'$'}{project.name}-optimized.jar"))
+}
 
-    // Keep original files alongside optimized ones
-    keepOriginal = true
+// Run it whenever it fits your build, e.g. after `assemble`
+tasks.named("assemble") { finalizedBy(optimizeJar) }
+```
 
+`dumpTasksWithOutputJars` prints every task that produces a jar, to help you decide what to wire in.
+
+### Configuration
+
+All options live directly on the task. Set them per task, or apply project-wide defaults to every
+`OptimizeJarsTask` with `configureEach`:
+
+```kotlin
+// build.gradle.kts
+import io.github.p03w.machete.tasks.OptimizeJarsTask
+import io.github.p03w.machete.config.optimizations.PngConfig
+
+tasks.withType<OptimizeJarsTask>().configureEach {
     // Preserve original file timestamps (default: false — constant timestamp for reproducibility)
     preserveFileTimestamps = true
 
     // Sort JAR entries so META-INF/MANIFEST.MF comes first (default: true)
     reproducibleFileOrder = false
-
-    // Task to finalize after (default: "assemble", empty string to disable)
-    finalizeAfter = ""
 
     // Toggle individual optimizations (all enabled by default)
     json.enabled = false
@@ -88,3 +104,6 @@ machete {
     jij.extraFileExtensions.add("zip")
 }
 ```
+
+To disable optimization for a build, disable the task the standard Gradle way
+(`tasks.named("optimizeJar") { enabled = false }`).

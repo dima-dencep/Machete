@@ -28,9 +28,17 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:6.1.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(gradleTestKit())
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 //endregion
+
+// The plugin's runtime dependencies live in the `shadow` configuration (bundled + relocated into the
+// published fat jar), so they are absent from the plugin-under-test classpath that TestKit injects.
+// Add them back so functional tests can actually run the plugin's tasks.
+tasks.pluginUnderTestMetadata {
+    pluginClasspath.from(configurations.shadow)
+}
 
 //region Task Configure
 tasks.shadowJar {
@@ -43,10 +51,6 @@ tasks.shadowJar {
     relocate("kotlinx.coroutines", "s_m.coroutines")
 
     minimize()
-}
-
-kotlin {
-    jvmToolchain(17)
 }
 
 tasks.test {

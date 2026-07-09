@@ -1,6 +1,6 @@
 package io.github.p03w.machete.patches
 
-import io.github.p03w.machete.config.MachetePluginExtension
+import io.github.p03w.machete.config.MacheteConfig
 import org.gradle.api.Project
 
 object AddMinecraftFileTypesPatch : Patch {
@@ -14,15 +14,13 @@ object AddMinecraftFileTypesPatch : Patch {
         "net.fabricmc.fabric-loom"
     )
 
-    override fun shouldApply(project: Project, config: MachetePluginExtension): Boolean {
+    override fun shouldApply(project: Project): Boolean {
         return minecraftPlugins.any {
             project.plugins.hasPlugin(it)
         }
     }
 
-    override fun patch(project: Project, config: MachetePluginExtension) {
-        config.json.extraFileExtensions.addAll(listOf(
-            "mcmeta"
-        ))
+    override fun apply(config: MacheteConfig) {
+        config.json.extraFileExtensions.add("mcmeta")
     }
 }

@@ -1,6 +1,6 @@
 package io.github.p03w.machete.core
 
-import io.github.p03w.machete.config.MachetePluginExtension
+import io.github.p03w.machete.tasks.OptimizeJarsTask
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -15,7 +15,9 @@ import java.util.jar.Manifest
 
 class JarOptimizerTest {
     private val project = ProjectBuilder.builder().build()
-    private val extension = project.extensions.create("machete", MachetePluginExtension::class.java)
+
+    // The task itself is the MacheteConfig; conventions come from its init block.
+    private val config = project.tasks.create("optimize", OptimizeJarsTask::class.java)
 
     private fun createTestJar(file: File, entries: Map<String, Pair<ByteArray, Long>>) {
         JarOutputStream(file.outputStream().buffered()).use { jar ->
@@ -31,13 +33,13 @@ class JarOptimizerTest {
     }
 
     private fun optimize(sourceJar: File, outputJar: File) {
-        JarOptimizer(extension, project).optimize(sourceJar, outputJar)
+        JarOptimizer(config, project.logger).optimize(sourceJar, outputJar)
     }
 
     @Test
     fun `preserves timestamps when preserveFileTimestamps is true`(@TempDir tempDir: File) {
-        extension.preserveFileTimestamps.set(true)
-        extension.png.enabled.set(false)
+        config.preserveFileTimestamps.set(true)
+        config.png.enabled.set(false)
 
         val originalTimestamp = 1_700_000_000_000L // Nov 14, 2023
         val sourceJar = tempDir.resolve("input.jar")
@@ -58,8 +60,8 @@ class JarOptimizerTest {
 
     @Test
     fun `uses constant timestamp when preserveFileTimestamps is false`(@TempDir tempDir: File) {
-        extension.preserveFileTimestamps.set(false)
-        extension.png.enabled.set(false)
+        config.preserveFileTimestamps.set(false)
+        config.png.enabled.set(false)
 
         val sourceJar = tempDir.resolve("input.jar")
         createTestJar(sourceJar, mapOf(
@@ -81,8 +83,8 @@ class JarOptimizerTest {
 
     @Test
     fun `reproducible builds produce identical jars`(@TempDir tempDir: File) {
-        extension.preserveFileTimestamps.set(false)
-        extension.png.enabled.set(false)
+        config.preserveFileTimestamps.set(false)
+        config.png.enabled.set(false)
 
         val content = """{ "key" : "value" }""".toByteArray()
 
@@ -106,9 +108,9 @@ class JarOptimizerTest {
 
     @Test
     fun `MANIFEST_MF is first entry when reproducibleFileOrder is enabled`(@TempDir tempDir: File) {
-        extension.preserveFileTimestamps.set(false)
-        extension.reproducibleFileOrder.set(true)
-        extension.png.enabled.set(false)
+        config.preserveFileTimestamps.set(false)
+        config.reproducibleFileOrder.set(true)
+        config.png.enabled.set(false)
 
         // Create a JAR where MANIFEST.MF is NOT the first entry
         val manifest = Manifest()
@@ -155,8 +157,8 @@ class JarOptimizerTest {
         // Regression test: extracting a jar to a case-insensitive filesystem (macOS/Windows) used to
         // collapse entries like `a.class` and `A.class` — common in obfuscated jars — into one.
         // The in-memory optimizer must preserve both, with their content intact.
-        extension.preserveFileTimestamps.set(false)
-        extension.png.enabled.set(false)
+        config.preserveFileTimestamps.set(false)
+        config.png.enabled.set(false)
 
         val lowerBytes = byteArrayOf(0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte(), 0x01)
         val upperBytes = byteArrayOf(0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte(), 0x02)
@@ -197,8 +199,8 @@ class JarOptimizerTest {
     fun `optimizes nested jars while preserving case-variant entries inside them`(@TempDir tempDir: File) {
         // jar-in-jar is enabled by default; a nested jar must be optimized (its json minified) yet
         // still round-trip both `a.class`/`A.class` variants.
-        extension.preserveFileTimestamps.set(false)
-        extension.png.enabled.set(false)
+        config.preserveFileTimestamps.set(false)
+        config.png.enabled.set(false)
 
         val fatJson = """{ "key" : "value" }"""
         val lowerBytes = byteArrayOf(0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte(), 0x01)

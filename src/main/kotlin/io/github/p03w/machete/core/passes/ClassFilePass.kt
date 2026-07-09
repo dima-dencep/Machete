@@ -1,6 +1,6 @@
 package io.github.p03w.machete.core.passes
 
-import io.github.p03w.machete.config.MachetePluginExtension
+import io.github.p03w.machete.config.MacheteConfig
 import io.github.p03w.machete.util.entryExtension
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
@@ -14,14 +14,14 @@ object ClassFilePass : JarOptimizationPass {
         SOURCE_FILE
     }
 
-    override fun shouldRunOnFile(name: String, config: MachetePluginExtension, log: Logger): Boolean {
+    override fun shouldRunOnFile(name: String, config: MacheteConfig, log: Logger): Boolean {
         return name.entryExtension == "class" && (
                 config.sourceFileStriping.enabled.get() ||
                 config.lvtStriping.enabled.get()
         )
     }
 
-    override fun processFile(name: String, bytes: ByteArray, config: MachetePluginExtension, log: Logger): ByteArray {
+    override fun processFile(name: String, bytes: ByteArray, config: MacheteConfig, log: Logger): ByteArray {
         val toStrip = EnumSet.noneOf(StripData::class.java)
         if (config.lvtStriping.enabled.get())        toStrip.add(StripData.LVT)
         if (config.sourceFileStriping.enabled.get()) toStrip.add(StripData.SOURCE_FILE)

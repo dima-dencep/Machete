@@ -1,6 +1,6 @@
 package io.github.p03w.machete.core.passes
 
-import io.github.p03w.machete.config.MachetePluginExtension
+import io.github.p03w.machete.tasks.OptimizeJarsTask
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -9,7 +9,7 @@ import org.objectweb.asm.tree.ClassNode
 
 class ClassFilePassTest {
     private val project = ProjectBuilder.builder().build()
-    private val extension = project.extensions.create("machete", MachetePluginExtension::class.java)
+    private val config = project.tasks.create("optimize", OptimizeJarsTask::class.java)
 
     private fun createTestClass(): ByteArray {
         val cw = ClassWriter(ClassWriter.COMPUTE_FRAMES)
@@ -37,13 +37,13 @@ class ClassFilePassTest {
 
     @Test
     fun `strips source file attribute`() {
-        extension.sourceFileStriping.enabled.set(true)
-        extension.lvtStriping.enabled.set(false)
+        config.sourceFileStriping.enabled.set(true)
+        config.lvtStriping.enabled.set(false)
 
         val original = createTestClass()
 
-        assertTrue(ClassFilePass.shouldRunOnFile("TestClass.class", extension, project.logger))
-        val result = ClassFilePass.processFile("TestClass.class", original, extension, project.logger)
+        assertTrue(ClassFilePass.shouldRunOnFile("TestClass.class", config, project.logger))
+        val result = ClassFilePass.processFile("TestClass.class", original, config, project.logger)
 
         println("CLASS TestClass.class (strip source): ${original.size} -> ${result.size} bytes (saved ${original.size - result.size})")
 
@@ -54,11 +54,11 @@ class ClassFilePassTest {
 
     @Test
     fun `strips local variable table`() {
-        extension.sourceFileStriping.enabled.set(false)
-        extension.lvtStriping.enabled.set(true)
+        config.sourceFileStriping.enabled.set(false)
+        config.lvtStriping.enabled.set(true)
 
         val original = createTestClass()
-        val result = ClassFilePass.processFile("TestClass.class", original, extension, project.logger)
+        val result = ClassFilePass.processFile("TestClass.class", original, config, project.logger)
 
         println("CLASS TestClass.class (strip LVT): ${original.size} -> ${result.size} bytes (saved ${original.size - result.size})")
 
@@ -71,6 +71,6 @@ class ClassFilePassTest {
 
     @Test
     fun `ignores non-class files`() {
-        assertFalse(ClassFilePass.shouldRunOnFile("test.txt", extension, project.logger))
+        assertFalse(ClassFilePass.shouldRunOnFile("test.txt", config, project.logger))
     }
 }

@@ -1,6 +1,6 @@
 package io.github.p03w.machete.core
 
-import io.github.p03w.machete.config.MachetePluginExtension
+import io.github.p03w.machete.config.MacheteConfig
 import io.github.p03w.machete.core.passes.*
 import io.github.p03w.machete.util.entryExtension
 import io.github.p03w.machete.util.entryName
@@ -8,7 +8,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
-import org.gradle.api.Project
+import org.slf4j.Logger
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.OutputStream
@@ -39,11 +39,9 @@ import java.util.zip.ZipInputStream
  * from the outer window processing several entries — including several nested jars — at once.
  */
 class JarOptimizer(
-    private val config: MachetePluginExtension,
-    private val project: Project,
+    private val config: MacheteConfig,
+    private val log: Logger,
 ) {
-    private val log = project.logger
-
     private val passes = buildList {
         if (config.png.enabled.get()) add(PngPass)
         if (config.json.enabled.get()) add(JsonPass)
@@ -59,6 +57,7 @@ class JarOptimizer(
     private class OutEntry(val name: String, val bytes: ByteArray, val time: Long)
 
     fun optimize(input: File, output: File) {
+        output.absoluteFile.parentFile?.mkdirs()
         output.outputStream().buffered().use { optimize(input, it) }
     }
 
@@ -202,7 +201,7 @@ class JarOptimizer(
             if (attributes.keys.any { it.toString().contains("Digest") }) {
                 val simpleName = name.entryName
                 ignore.add(simpleName)
-                log.info("[${project.name}] Will skip file $simpleName as it is signed")
+                log.info("Will skip file {} as it is signed", simpleName)
             }
         }
         return ignore

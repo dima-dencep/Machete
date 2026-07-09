@@ -2,73 +2,26 @@
 
 package io.github.p03w.machete
 
-import io.github.p03w.machete.config.MachetePluginExtension
 import io.github.p03w.machete.patches.patches
 import io.github.p03w.machete.tasks.DumpTasksWithOutputJarsTask
 import io.github.p03w.machete.tasks.OptimizeJarsTask
-import io.github.p03w.machete.util.capital
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
 class MachetePlugin : Plugin<Project> {
     override fun apply(project: Project) {
-        val extension = project.extensions.create("machete", MachetePluginExtension::class.java)
+        // Machete does not hook build tasks automatically, and there is no `machete { }` extension:
+        // projects register their own OptimizeJarsTask(s) and configure them directly (or set
+        // project-wide defaults via `tasks.withType(OptimizeJarsTask::class).configureEach { }`).
+        project.tasks.withType(OptimizeJarsTask::class.java).configureEach { task ->
+            task.group = "machete"
+            task.description = "Optimizes a jar through per-file optimizations and stronger compression"
 
-        project.afterEvaluate {
-            if (extension.enabled.get().not()) {
-                project.logger.lifecycle("Machete was disabled on this build through the `enabled` flag!")
-                return@afterEvaluate
-            }
-
-            val tasksToCheck = extension.tasks.get()
-
-            project.logger.info("All tasks to check: $tasksToCheck")
-
-            tasksToCheck.forEach { taskName ->
-                val found = project.tasks.findByName(taskName)
-                if (found != null) {
-                    project.logger.info("Tasks $taskName exists! Generating a hook task")
-                    val toOptimize = found.outputs.files
-                    val optimizeTask = project.tasks.register(
-                        "optimizeOutputsOf${taskName.capital()}",
-                        OptimizeJarsTask::class.java
-                    ) { optimizeTask ->
-                        optimizeTask.group = "machete"
-                        optimizeTask.description =
-                            "An auto-generated task to optimize the output artifacts of $taskName"
-
-                        // Try and set the inputs and outputs
-                        optimizeTask.inputs.files(toOptimize)
-                        if (extension.keepOriginal.get().not()) {
-                            optimizeTask.outputs.files(toOptimize)
-                        } else {
-                            optimizeTask.outputs.files(toOptimize.map { file ->
-                                file.resolveSibling(file.nameWithoutExtension + "-optimized.jar")
-                            })
-                        }
-
-                        // We can cache if we arent replacing anything
-                        // Gradle does handle this for us, but doesn't hurt to be explicit
-                        optimizeTask.outputs.cacheIf { extension.keepOriginal.get() }
-
-                        optimizeTask.extension.set(extension)
-                    }
-
-                    // Hook after build
-                    val after = extension.finalizeAfter.get()
-                    if (after.isNotBlank()) {
-                        project.tasks.getByName(after).finalizedBy(optimizeTask)
-                    }
-                    optimizeTask.configure { it.dependsOn(found) }
-                }
-            }
-
-            // Try and apply any compatibility patches
-            patches.forEach {
-                project.logger.info("Checking if patch ${it::class.simpleName} should apply")
-                if (it.shouldApply(project, extension)) {
-                    project.logger.info("Applying project patch ${it::class.simpleName}")
-                    it.patch(project, extension)
+            // Compatibility patches, e.g. treat .mcmeta as JSON when a modding plugin is present
+            patches.forEach { patch ->
+                if (patch.shouldApply(project)) {
+                    project.logger.info("Applying patch ${patch::class.simpleName} to ${task.name}")
+                    patch.apply(task)
                 }
             }
         }

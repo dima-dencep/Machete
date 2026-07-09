@@ -1,40 +1,46 @@
 package io.github.p03w.machete.tasks
 
-import io.github.p03w.machete.config.MachetePluginExtension
+import io.github.p03w.machete.config.MacheteConfig
 import io.github.p03w.machete.core.JarOptimizer
 import org.gradle.api.DefaultTask
-import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Nested
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 
-abstract class OptimizeJarsTask : DefaultTask() {
-    @get:Nested
-    abstract val extension: Property<MachetePluginExtension>
+/**
+ * Optimizes a single jar ([input]) into another ([output]).
+ *
+ * All optimization settings are properties of this task (via [MacheteConfig]) — there is no separate
+ * extension. Register one per jar you want optimized and set project-wide defaults through
+ * `tasks.withType(OptimizeJarsTask::class).configureEach { }`:
+ *
+ * ```
+ * val optimizeJar = tasks.register<OptimizeJarsTask>("optimizeJar") {
+ *     input.set(tasks.jar.flatMap { it.archiveFile })
+ *     output.set(layout.buildDirectory.file("libs/app-optimized.jar"))
+ * }
+ * ```
+ */
+@CacheableTask
+abstract class OptimizeJarsTask : DefaultTask(), MacheteConfig {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val input: RegularFileProperty
+
+    @get:OutputFile
+    abstract val output: RegularFileProperty
+
+    init {
+        preserveFileTimestamps.convention(false)
+        reproducibleFileOrder.convention(true)
+    }
 
     @TaskAction
-    fun optimizeJars() {
-        val config = extension.get()
-        inputs.files.forEach { file ->
-            val optimizer = JarOptimizer(config, project)
-
-            val target = if (config.keepOriginal.get()) {
-                file.resolveSibling(file.nameWithoutExtension + "-optimized.jar")
-            } else {
-                file
-            }
-
-            // We stream straight from `file` (via ZipFile) and cannot write over it while reading, so
-            // the result goes to a sibling temp file that is atomically moved into place afterwards.
-            // A failure mid-optimization therefore leaves the original jar untouched.
-            val tmp = file.resolveSibling(file.name + ".machete-tmp")
-            try {
-                optimizer.optimize(file, tmp)
-                Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            } finally {
-                tmp.delete()
-            }
-        }
+    fun optimize() {
+        JarOptimizer(this, logger).optimize(input.get().asFile, output.get().asFile)
     }
 }

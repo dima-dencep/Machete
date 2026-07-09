@@ -1,6 +1,6 @@
 package io.github.p03w.machete.core.passes
 
-import io.github.p03w.machete.config.MachetePluginExtension
+import io.github.p03w.machete.config.MacheteConfig
 import org.slf4j.Logger
 
 /**
@@ -10,6 +10,6 @@ import org.slf4j.Logger
  * bytes (or the input unchanged when no improvement was possible).
  */
 interface JarOptimizationPass {
-    fun shouldRunOnFile(name: String, config: MachetePluginExtension, log: Logger): Boolean
-    fun processFile(name: String, bytes: ByteArray, config: MachetePluginExtension, log: Logger): ByteArray
+    fun shouldRunOnFile(name: String, config: MacheteConfig, log: Logger): Boolean
+    fun processFile(name: String, bytes: ByteArray, config: MacheteConfig, log: Logger): ByteArray
 }

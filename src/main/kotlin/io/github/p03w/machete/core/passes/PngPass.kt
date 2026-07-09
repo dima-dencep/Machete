@@ -2,7 +2,7 @@ package io.github.p03w.machete.core.passes
 
 import com.googlecode.pngtastic.core.PngImage
 import com.googlecode.pngtastic.core.PngOptimizer
-import io.github.p03w.machete.config.MachetePluginExtension
+import io.github.p03w.machete.config.MacheteConfig
 import io.github.p03w.machete.config.optimizations.PngConfig
 import io.github.p03w.machete.util.entryExtension
 import org.slf4j.Logger
@@ -12,12 +12,12 @@ import java.util.concurrent.Semaphore
 object PngPass : JarOptimizationPass {
     private val concurrencyLimit = Semaphore(2)
 
-    override fun shouldRunOnFile(name: String, config: MachetePluginExtension, log: Logger): Boolean {
+    override fun shouldRunOnFile(name: String, config: MacheteConfig, log: Logger): Boolean {
         val ext = name.entryExtension
         return ext == "png" || config.png.extraFileExtensions.get().contains(ext)
     }
 
-    override fun processFile(name: String, bytes: ByteArray, config: MachetePluginExtension, log: Logger): ByteArray {
+    override fun processFile(name: String, bytes: ByteArray, config: MacheteConfig, log: Logger): ByteArray {
         concurrencyLimit.acquire()
         return try {
             val image = PngImage(bytes)
